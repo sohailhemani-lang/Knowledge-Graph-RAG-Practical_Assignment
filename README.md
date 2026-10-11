@@ -64,7 +64,7 @@ This project demonstrates how to build an intelligent movie assistant that under
 
 ### **1. Configuration Management** (`config.py`)
 - Loads environment variables from `.env` file
-- Validates Neo4j and OpenAI API credentials
+- Validates Neo4j and Gemini API credentials
 - Sets up global configuration for all modules
 
 ### **2. Graph Loader** (`graph_loader.py`)
@@ -75,7 +75,7 @@ This project demonstrates how to build an intelligent movie assistant that under
 
 ### **3. Vector Store** (`vector_store.py`)
 - Initializes FAISS index for vector search
-- Generates embeddings using OpenAI's embedding model
+- Generates embeddings using Gemini's embedding model
 - Performs similarity search on movie descriptions
 - Returns ranked results based on semantic relevance
 
@@ -128,32 +128,41 @@ The system intelligently routes queries:
 ### Prerequisites
 - Python 3.9+
 - Neo4j instance (local or cloud)
-- OpenAI API key
+- Gemini API key
 
 ### Installation
 
 1. **Clone the repository**
-   ```bash
+   ```powershell
    git clone https://github.com/niti007/knowledge-graph-RAG-practical.git
    cd knowledge-graph-RAG-practical
    ```
 
 2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install -r requirements.txt
    ```
 
-3. **Create `.env` file**
-   ```bash
-   cp .env.example .env
-   # or manually create .env with:
+3. **Create a local `.env` file**
+   ```powershell
+   Copy-Item .env.example .env
    ```
+
+   Fill in the values locally. Never commit `.env` or share its credentials.
    ```env
    NEO4J_URI=bolt://localhost:7687
    NEO4J_USER=neo4j
    NEO4J_PASSWORD=your_password
-   OPENAI_API_KEY=sk-your-api-key-here
+   GEMINI_API_KEY=your-gemini-api-key
    ```
+   Use a Google Gemini API key here. OpenAI API keys are not compatible; do not
+   put an OpenAI key in `GEMINI_API_KEY`.
+   The default chat and embedding models are `gemini-3.8-flash` and
+   `gemini-embedding-001`. If Google reports that a model is unavailable to
+   your project, set `GEMINI_CHAT_MODEL` or `GEMINI_EMBEDDING_MODEL` to a model
+   ID available to your API key, then restart Streamlit.
 
    > **Neo4j Setup Guide**: If you don't have Neo4j installed:
    > - **Local**: Install from [neo4j.com/download](https://neo4j.com/download/)
@@ -161,7 +170,7 @@ The system intelligently routes queries:
    > - **Cloud**: Use [Neo4j Aura](https://neo4j.com/cloud/platform/aura-graph-database/)
 
 4. **Load the dataset**
-   ```bash
+   ```powershell
    python main.py --load
    ```
    
@@ -183,12 +192,29 @@ The system intelligently routes queries:
    DIRECTED : 12 relationships
    ```
 
+5. **Start the Streamlit application**
+   ```powershell
+   python -m streamlit run app.py
+   ```
+   Open the local URL printed by Streamlit in your browser. The application can
+   start before services are configured; it displays a helpful message if a
+   submitted question cannot run because credentials or a service are unavailable.
+
 ---
 
 ## 💻 Usage
 
+### Streamlit UI (Recommended)
+```powershell
+python -m streamlit run app.py
+```
+
+The chat interface keeps the conversation for the current browser session,
+shows whether Neo4j or FAISS answered, reports response time, and lets you
+expand the retrieved context or clear the chat.
+
 ### Interactive Mode (Default)
-```bash
+```powershell
 python main.py
 ```
 
@@ -214,21 +240,26 @@ Commands:
 
 ### Demo Mode
 Runs 5 pre-set sample queries showcasing both retrieval paths:
-```bash
+```powershell
 python main.py --demo
 ```
 
 ### Data Loading
 Reload/refresh the movie dataset:
-```bash
+```powershell
 python main.py --load
 ```
 
 ### Evaluation/Benchmarking
 Run performance benchmarks:
-```bash
+```powershell
 python main.py --eval
 ```
+This runs 11 questions (graph, vector, and an unknown-title case), checks
+retrieval routing and expected answer facts, and writes actual answers,
+retrieval paths, and timings to `evaluation_report.csv`. Review the generated
+answers for relevance as part of the final evaluation; the automatic fact check
+is a lightweight keyword check, not a substitute for human review.
 
 ---
 
@@ -256,21 +287,22 @@ The system comes with a curated dataset of **12 movies** featuring:
 
 ```
 neo4j>=5.0.0              # Graph database driver
+httpx>=0.27.0             # HTTP client used for service error handling
 langchain>=0.3.0          # LLM orchestration framework
-langchain-openai>=0.2.0   # OpenAI integration
+langchain-google-genai>=2.1.0  # Gemini chat and embeddings
 langchain-community>=0.3.0
 langchain-core>=0.3.0
-openai>=1.0.0             # OpenAI API
 pydantic>=2.0.0           # Data validation
 python-dotenv>=1.0.0      # Environment variables
 faiss-cpu>=1.7.0          # Vector search
+streamlit>=1.32.0         # Web UI
 ```
 
 ---
 
 ## 🔧 Configuration
 
-Edit these variables in your `.env` file:
+Copy `.env.example` to `.env`, then fill in these variables:
 
 ```env
 # Neo4j Connection
@@ -278,8 +310,8 @@ NEO4J_URI=bolt://localhost:7687        # Graph database URL
 NEO4J_USER=neo4j                        # Database username
 NEO4J_PASSWORD=password                 # Database password
 
-# OpenAI API
-OPENAI_API_KEY=sk-...                   # Your API key
+# Gemini API
+GEMINI_API_KEY=...                      # Your Gemini API key
 ```
 
 ---
@@ -288,6 +320,7 @@ OPENAI_API_KEY=sk-...                   # Your API key
 
 ```
 knowledge-graph-RAG-practical/
+├── app.py                  # Streamlit chat UI
 ├── main.py                 # CLI entry point
 ├── config.py               # Configuration loader
 ├── graph_loader.py         # Dataset loader + Neo4j setup
@@ -295,7 +328,9 @@ knowledge-graph-RAG-practical/
 ├── vector_store.py         # FAISS vector search
 ├── router.py               # Query intent classifier
 ├── rag_chain.py            # RAG pipeline orchestrator
-├── evaluate.py             # Benchmarking suite
+├── evaluate.py             # Benchmarking suite and CSV report writer
+├── evaluation_report.md    # Live evaluation instructions and test questions
+├── tests/                  # Offline requirement and regression tests
 ├── requirements.txt        # Python dependencies
 ├── .env.example            # Environment template
 ├── .gitignore              # Git ignore rules
@@ -371,10 +406,14 @@ python main.py --eval
 ```
 
 Metrics tracked:
-- **Query latency** (ms)
+- **Query latency** (seconds)
 - **Retriever routing accuracy**
-- **Answer quality**
-- **Cache hit rates**
+- **Expected answer facts** (keyword-based check, requiring human review)
+- **Actual answers and retrieval paths** (saved in `evaluation_report.csv`)
+
+The evaluation makes live Gemini API calls and requires Neo4j. Run it only
+after configuring working credentials; do not use an API key that has been
+shared publicly or in chat.
 
 ---
 
@@ -383,7 +422,7 @@ Metrics tracked:
 | Issue | Solution |
 |-------|----------|
 | "Neo4j connection failed" | Check NEO4J_URI, user, password in .env |
-| "OPENAI_API_KEY not set" | Add your API key to .env |
+| "GEMINI_API_KEY not set" | Add a valid Google Gemini API key to .env |
 | "Module not found" | Run `pip install -r requirements.txt` |
 | "FAISS import error" | Run `pip install faiss-cpu` (CPU) or `faiss-gpu` (GPU) |
 | "No results from graph" | Run `python main.py --load` to populate database |
@@ -411,7 +450,7 @@ This project is open source and available under the MIT License.
 - [Neo4j Documentation](https://neo4j.com/docs/)
 - [LangChain Guide](https://python.langchain.com/)
 - [FAISS Tutorial](https://github.com/facebookresearch/faiss)
-- [OpenAI API Docs](https://platform.openai.com/docs/)
+- [Gemini API Docs](https://ai.google.dev/gemini-api/docs)
 - [Cypher Query Language](https://neo4j.com/docs/cypher-manual/current/)
 
 ---
@@ -425,6 +464,6 @@ Created by **niti007** as a practical exploration of hybrid RAG systems.
 ## ⭐ Acknowledgments
 
 - Neo4j team for the graph database
-- OpenAI for language models
+- Gemini for chat generation and embeddings
 - Meta AI for FAISS vector search
 - LangChain community for orchestration framework

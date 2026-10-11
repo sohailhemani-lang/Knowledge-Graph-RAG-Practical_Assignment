@@ -11,8 +11,10 @@ Run:
     python evaluate.py
 """
 
+import csv
 import time
-from langchain_openai import ChatOpenAI
+from pathlib import Path
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -25,7 +27,11 @@ from vector_store import similarity_search, get_vector_store
 # Shared LLM for forced-retriever answers
 # ---------------------------------------------------------------------------
 
-_LLM = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+_LLM = ChatGoogleGenerativeAI(
+    model=config.GEMINI_CHAT_MODEL,
+    temperature=0.2,
+    api_key=config.GEMINI_API_KEY,
+)
 
 _ANSWER_PROMPT = ChatPromptTemplate.from_template(
     "Use the following context to answer the question.\n\n"
@@ -55,27 +61,55 @@ GRAPH_QUESTIONS = [
     {
         "question": "Who acted in The Matrix?",
         "expected": "graph",
+        "expected_answer": "Keanu Reeves, Laurence Fishburne, Carrie-Anne Moss, and Hugo Weaving.",
+        "expected_terms": (
+            "Keanu Reeves",
+            "Laurence Fishburne",
+            "Carrie-Anne Moss",
+            "Hugo Weaving",
+        ),
+        "term_match": "all",
         "note":     "Direct entity -> cast lookup",
     },
     {
         "question": "What movies has Tom Hanks appeared in?",
         "expected": "graph",
+        "expected_answer": "Tom Hanks appears in several movies, including Forrest Gump and Cast Away.",
+        "expected_terms": ("Forrest Gump", "Cast Away"),
+        "term_match": "all",
         "note":     "Actor filmography",
     },
     {
         "question": "Who directed Inception?",
         "expected": "graph",
+        "expected_answer": "Christopher Nolan directed Inception.",
+        "expected_terms": ("Christopher Nolan",),
+        "term_match": "all",
         "note":     "Director lookup",
     },
     {
         "question": "Who has Keanu Reeves acted with?",
         "expected": "graph",
+        "expected_answer": "Keanu Reeves has acted with Laurence Fishburne and Carrie-Anne Moss.",
+        "expected_terms": ("Laurence Fishburne", "Carrie-Anne Moss"),
+        "term_match": "all",
         "note":     "Multi-hop: co-actors",
     },
     {
         "question": "What films did Christopher Nolan direct?",
         "expected": "graph",
+        "expected_answer": "Christopher Nolan directed The Dark Knight and Inception.",
+        "expected_terms": ("The Dark Knight", "Inception"),
+        "term_match": "all",
         "note":     "Director filmography",
+    },
+    {
+        "question": "Who directed Avatar?",
+        "expected": "graph",
+        "expected_answer": "Avatar is not present in the movie dataset.",
+        "expected_terms": ("couldn't find matching movie information",),
+        "term_match": "all",
+        "note":     "Unknown title: return a helpful no-match answer",
     },
 ]
 
@@ -83,31 +117,72 @@ VECTOR_QUESTIONS = [
     {
         "question": "Recommend a sci-fi movie involving space or advanced technology.",
         "expected": "vector",
+        "expected_answer": "A science-fiction recommendation such as The Matrix or Inception.",
+        "expected_terms": ("The Matrix", "Inception"),
+        "term_match": "any",
         "note":     "Semantic genre search",
     },
     {
         "question": "Find me a movie about survival in extreme isolation.",
         "expected": "vector",
+        "expected_answer": "Cast Away is about survival and isolation.",
+        "expected_terms": ("Cast Away",),
+        "term_match": "all",
         "note":     "Thematic search",
     },
     {
         "question": "I want to watch something romantic and emotional.",
         "expected": "vector",
+        "expected_answer": "Titanic is a romantic and emotional movie recommendation.",
+        "expected_terms": ("Titanic",),
+        "term_match": "all",
         "note":     "Mood-based search",
     },
     {
         "question": "Tell me about a film involving crime and moral dilemmas.",
         "expected": "vector",
+        "expected_answer": "Training Day is a crime film about corruption.",
+        "expected_terms": ("Training Day",),
+        "term_match": "all",
         "note":     "Abstract theme search",
     },
     {
         "question": "Suggest a mind-bending movie with an unusual narrative structure.",
         "expected": "vector",
+        "expected_answer": "A mind-bending recommendation such as The Matrix or Inception.",
+        "expected_terms": ("The Matrix", "Inception"),
+        "term_match": "any",
         "note":     "Concept-based search",
     },
 ]
 
 ALL_QUESTIONS = GRAPH_QUESTIONS + VECTOR_QUESTIONS
+REPORT_PATH = Path(__file__).with_name("evaluation_report.csv")
+
+
+def _answer_matches(answer: str, expected_terms: tuple[str, ...], mode: str) -> bool:
+    """Check whether an answer contains the expected reference facts."""
+    matches = [term.casefold() in answer.casefold() for term in expected_terms]
+    return all(matches) if mode == "all" else any(matches)
+
+
+def write_evaluation_report(results: list[dict], path: Path = REPORT_PATH) -> None:
+    """Write measured evaluation outcomes to a CSV report."""
+    fields = (
+        "question",
+        "expected_answer",
+        "actual_answer",
+        "expected_retriever",
+        "actual_retriever",
+        "route_correct",
+        "expected_facts_found",
+        "relevance_review",
+        "response_time_seconds",
+    )
+    with path.open("w", encoding="utf-8", newline="") as report_file:
+        writer = csv.DictWriter(report_file, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows({field: result[field] for field in fields} for result in results)
 
 
 # ---------------------------------------------------------------------------
@@ -152,11 +227,17 @@ def run_evaluation() -> list[dict]:
 
         actual  = hybrid_result["retriever"]
         correct = actual == expected
+        facts_found = _answer_matches(
+            hybrid_result["answer"],
+            item["expected_terms"],
+            item["term_match"],
+        )
         if correct:
             correct_count += 1
 
         tick = "[OK]" if correct else "[FAIL]"
         print(f"  Routed to     : {actual.upper()}  {tick}")
+        print(f"  Expected facts: {'[OK]' if facts_found else '[REVIEW]'}")
         print(f"  Time          : {elapsed:.2f}s")
 
         # Forced alternative for comparison
@@ -175,9 +256,17 @@ def run_evaluation() -> list[dict]:
 
         results.append({
             "question":      question,
+            "expected_answer": item["expected_answer"],
+            "actual_answer": hybrid_result["answer"],
             "expected":      expected,
             "actual":        actual,
+            "expected_retriever": expected,
+            "actual_retriever": actual,
             "correct":       correct,
+            "route_correct": correct,
+            "expected_facts_found": facts_found,
+            "relevance_review": "Pending manual review",
+            "response_time_seconds": round(elapsed, 3),
             "hybrid_answer": hybrid_result["answer"],
             "alt_retriever": alt,
             "alt_answer":    alt_answer,
@@ -188,6 +277,7 @@ def run_evaluation() -> list[dict]:
     accuracy = correct_count / len(ALL_QUESTIONS) * 100
     graph_ok  = sum(1 for r in results if r["expected"] == "graph"  and r["correct"])
     vector_ok = sum(1 for r in results if r["expected"] == "vector" and r["correct"])
+    facts_ok  = sum(1 for r in results if r["expected_facts_found"])
     avg_time  = sum(r["elapsed"] for r in results) / len(results)
 
     print(sep)
@@ -196,6 +286,7 @@ def run_evaluation() -> list[dict]:
     print(f"  Overall accuracy   : {correct_count}/{len(ALL_QUESTIONS)}  ({accuracy:.1f}%)")
     print(f"  Graph  questions   : {graph_ok}/{len(GRAPH_QUESTIONS)} correct")
     print(f"  Vector questions   : {vector_ok}/{len(VECTOR_QUESTIONS)} correct")
+    print(f"  Expected facts     : {facts_ok}/{len(results)} found (keyword check)")
     print(f"  Avg response time  : {avg_time:.2f}s per query")
     print(sep)
 
@@ -207,6 +298,8 @@ def run_evaluation() -> list[dict]:
             print(f"    [FAIL] Expected {r['expected'].upper()} -> got {r['actual'].upper()} | {r['question']}")
     else:
         print("\n  All queries routed correctly! (Success)")
+    write_evaluation_report(results)
+    print(f"  Evaluation report saved to: {REPORT_PATH}")
     print()
 
     return results

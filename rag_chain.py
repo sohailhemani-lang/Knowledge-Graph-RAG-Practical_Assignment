@@ -10,7 +10,7 @@ PURPOSE:
 WHAT IT DOES:
   1. Routes the user query to the appropriate retriever (graph or vector)
   2. Retrieves relevant context using the selected retriever
-  3. Generates a grounded answer using GPT-4o-mini
+  3. Generates a grounded answer using Gemini
   4. Returns the answer along with retriever source information
 
 SIMPLE EXAMPLE:
@@ -30,7 +30,7 @@ SIMPLE EXAMPLE:
 """
 
 # Import LangChain's LLM interface
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Import LangChain's prompt templating system
 from langchain_core.prompts import ChatPromptTemplate
@@ -59,12 +59,16 @@ from vector_store import similarity_search
 # Define the LLM model and the prompt it will use
 
 # Initialize the language model
-# model="gpt-4o-mini" is a fast, cheaper version of GPT-4 (good for routing/summarization)
+# Gemini Flash is used for fast, grounded answer generation.
 # temperature=0.2 means low creativity, high factuality (deterministic responses)
 #   - temperature=0.0 = always same response (most deterministic)
 #   - temperature=0.5 = moderate variation (balanced)
 #   - temperature=1.0 = high variation (creative, less reliable)
-_LLM = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+_LLM = ChatGoogleGenerativeAI(
+    model=config.GEMINI_CHAT_MODEL,
+    temperature=0.2,
+    api_key=config.GEMINI_API_KEY,
+)
 
 # Define the prompt template for answer generation
 # This tells the LLM exactly how to generate answers
@@ -95,7 +99,7 @@ Answer:"""
 _chain = _ANSWER_PROMPT | _LLM | StrOutputParser()
 # This means:
 #   1. ChatPromptTemplate formats the prompt with variables
-#   2. ChatOpenAI generates text based on the prompt
+#   2. Gemini generates text based on the prompt
 #   3. StrOutputParser extracts the text as a clean string
 
 
@@ -188,6 +192,9 @@ def run_hybrid_rag(query: str, verbose: bool = True) -> dict:
         }
     """
     
+    if not query or not query.strip():
+        raise ValueError("Query must not be empty.")
+
     # ─────────────────────────────────────────────────────────────────────────────
     # PHASE 1: Route the query to determine which retriever to use
     # ─────────────────────────────────────────────────────────────────────────────
@@ -219,6 +226,24 @@ def run_hybrid_rag(query: str, verbose: bool = True) -> dict:
     # If verbose mode is on, print how much context was retrieved
     if verbose:
         print(f"  [Context] {len(context)} chars retrieved")
+
+    no_result_prefixes = (
+        "no actors found",
+        "no co-actors found",
+        "no directors found",
+        "no matching",
+        "no movies found",
+    )
+    if not context.strip() or context.strip().lower().startswith(no_result_prefixes):
+        return {
+            "query": query,
+            "retriever": retriever_type,
+            "context": context,
+            "answer": (
+                "I couldn't find matching movie information in the dataset. "
+                "Try another movie, actor, or director from the available data."
+            ),
+        }
 
     # ─────────────────────────────────────────────────────────────────────────────
     # PHASE 3: Generate the final answer using the LLM

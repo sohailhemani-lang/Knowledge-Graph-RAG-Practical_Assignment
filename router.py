@@ -9,7 +9,7 @@ PURPOSE:
 
 WHAT IT DOES:
   1. Uses fast keyword heuristics to classify queries (99% of the time)
-  2. Falls back to an LLM (GPT-4o-mini) for ambiguous queries
+  2. Falls back to Gemini for ambiguous queries
   3. Returns 'graph' or 'vector' to tell the system which retriever to use
 
 SIMPLE EXAMPLE:
@@ -32,16 +32,13 @@ from __future__ import annotations
 from typing import Optional
 
 # Import LangChain's LLM interface
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Import LangChain's prompt template system
 from langchain_core.prompts import ChatPromptTemplate
 
 # Import configuration to ensure API keys are loaded
 import config  # noqa: F401
-
-# Import the OpenAI API key from config
-from config import OPENAI_API_KEY
 
 # ─────────────────────────────────────────────────────────────────────────────────────────
 # SECTION 1: Keyword Sets for Heuristic Routing
@@ -171,13 +168,13 @@ def _keyword_route(query: str) -> Optional[str]:
 # ─────────────────────────────────────────────────────────────────────────────────────────
 # SECTION 3: LLM-Based Fallback Router
 # ─────────────────────────────────────────────────────────────────────────────────────────
-# When keyword heuristics can't decide, use GPT-4o-mini to classify
+# When keyword heuristics can't decide, use Gemini to classify
 
 # Global variable to cache the LLM instance
 # We create it once and reuse it (singleton pattern)
 _llm = None
 
-# The prompt template that tells GPT-4o-mini how to classify queries
+# The prompt template that tells Gemini how to classify queries
 _ROUTING_PROMPT = ChatPromptTemplate.from_template(
     """You are a query routing assistant for a movie knowledge system.
 
@@ -198,10 +195,28 @@ Respond with ONLY the single word "graph" or "vector" — nothing else.
 )
 
 
+def _response_text(content: object) -> str:
+    if isinstance(content, str):
+        return content.strip().lower()
+
+    if isinstance(content, list):
+        text_parts = []
+        for block in content:
+            if isinstance(block, str):
+                text_parts.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                text_parts.append(block["text"])
+        answer = " ".join(text_parts).strip().lower()
+        if answer:
+            return answer
+
+    raise ValueError("Gemini returned no text for the query-routing decision.")
+
+
 def _llm_route(query: str) -> str:
     """
     PURPOSE:
-      Use GPT-4o-mini to classify ambiguous queries.
+      Use Gemini to classify ambiguous queries.
       This is slower than keyword matching but much more accurate for edge cases.
     
     HOW IT WORKS:
@@ -233,27 +248,31 @@ def _llm_route(query: str) -> str:
     
     # Create the LLM on first call
     if _llm is None:
-        # ChatOpenAI with model "gpt-4o-mini"
+        # Gemini Flash provides a fast fallback for ambiguous queries.
         # temperature=0 means deterministic (always same answer for same query)
         # Higher temperature = more creative/random
-        _llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        _llm = ChatGoogleGenerativeAI(
+            model=config.GEMINI_CHAT_MODEL,
+            temperature=0,
+            api_key=config.GEMINI_API_KEY,
+        )
     
     # Create a chain: prompt template → LLM
     # The | operator pipes the output of one component as input to the next
     chain = _ROUTING_PROMPT | _llm
     
     # Invoke the chain with the user's query
-    # This calls GPT-4o-mini with the formatted prompt
+    # This calls Gemini with the formatted prompt
     result = chain.invoke({"query": query})
     
-    # Extract the text response from the LLM result object
-    # result.content is the string response (e.g., "graph")
-    answer = result.content.strip().lower()
+    # Gemini may return text as a list of content blocks rather than one string.
+    answer = _response_text(result.content)
     
-    # Check which keyword is in the answer
-    # If "graph" appears anywhere in the response, return "graph"
-    # Otherwise return "vector"
-    return "graph" if "graph" in answer else "vector"
+    if "graph" in answer:
+        return "graph"
+    if "vector" in answer:
+        return "vector"
+    raise ValueError(f"Gemini returned an invalid query-routing decision: {answer!r}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────────────────

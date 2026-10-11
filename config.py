@@ -11,11 +11,12 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 NEO4J_URI      = os.getenv("NEO4J_URI")
 NEO4J_USER     = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-# Set key globally so LangChain sub-libraries pick it up automatically
-if OPENAI_API_KEY:
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_CHAT_MODEL = os.getenv("GEMINI_CHAT_MODEL", "gemini-3.8-flash")
+GEMINI_EMBEDDING_MODEL = os.getenv(
+    "GEMINI_EMBEDDING_MODEL",
+    "gemini-embedding-001",
+)
 
 if not NEO4J_URI or not NEO4J_USER or not NEO4J_PASSWORD:
     raise EnvironmentError(
@@ -23,14 +24,15 @@ if not NEO4J_URI or not NEO4J_USER or not NEO4J_PASSWORD:
         "are not set. Add them to your .env file."
     )
 
-if not OPENAI_API_KEY:
+if not GEMINI_API_KEY:
     raise EnvironmentError(
-        "OPENAI_API_KEY is not set. "
-        "Add it to the .env file or export it as an environment variable."
+        "GEMINI_API_KEY is not set. Add a valid Gemini API key to the .env file "
+        "or export it as an environment variable. OpenAI API keys are not valid "
+        "Gemini keys."
     )
 
 if __name__ == "__main__":
     print("Configuration loaded:")
     print(f"  NEO4J_URI  : {NEO4J_URI}")
     print(f"  NEO4J_USER : {NEO4J_USER}")
-    print(f"  OPENAI_KEY : {OPENAI_API_KEY[:8]}...{OPENAI_API_KEY[-4:]}")
+    print("  GEMINI_KEY : configured")

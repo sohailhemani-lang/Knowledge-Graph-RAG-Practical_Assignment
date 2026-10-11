@@ -482,18 +482,24 @@ def graph_retrieve(query: str) -> str:
         actor = _find_entity(query, KNOWN_ACTORS)
         if actor:
             return get_co_actors(actor)
+        return "No matching actor was found in the dataset."
 
     # 2. Multi-hop: Find directors who worked with an actor
     if asks_director_query and not asks_movies_director:
         actor = _find_entity(query, KNOWN_ACTORS)
         if actor:
             return get_directors_of_actor(actor)
+        movie = _find_entity(query, KNOWN_MOVIES)
+        if movie:
+            return get_director_of_movie(movie)
+        return "No matching movie or director was found in the dataset."
 
     # 3. Director's filmography
     if asks_movies_director:
         director = _find_entity(query, KNOWN_DIRECTORS)
         if director:
             return get_movies_by_director(director)
+        return "No matching director was found in the dataset."
 
     # 4. Director of a specific movie
     if asks_director_query:
@@ -503,18 +509,21 @@ def graph_retrieve(query: str) -> str:
         director = _find_entity(query, KNOWN_DIRECTORS)
         if director:
             return get_movies_by_director(director)
+        return "No matching movie or director was found in the dataset."
 
-    # 5. Actor's filmography
-    if asks_movies_actor:
-        actor = _find_entity(query, KNOWN_ACTORS)
-        if actor:
-            return get_movies_by_actor(actor)
-
-    # 6. Cast of a movie
+    # 5. Cast of a movie
     if asks_cast:
         movie = _find_entity(query, KNOWN_MOVIES)
         if movie:
             return get_actors_in_movie(movie)
+        return "No matching movie was found in the dataset."
+
+    # 6. Actor's filmography
+    if asks_movies_actor:
+        actor = _find_entity(query, KNOWN_ACTORS)
+        if actor:
+            return get_movies_by_actor(actor)
+        return "No matching actor was found in the dataset."
 
     # 7. Generic actor lookup
     actor = _find_entity(query, KNOWN_ACTORS)

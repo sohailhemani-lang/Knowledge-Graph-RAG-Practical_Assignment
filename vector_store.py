@@ -10,7 +10,7 @@ PURPOSE:
 
 WHAT IT DOES:
   1. Takes movie data and converts it to rich text documents
-  2. Uses OpenAI's embedding model to convert text → vectors (lists of numbers)
+  2. Uses Gemini embeddings to convert text → vectors (lists of numbers)
   3. Stores all vectors in FAISS (a fast search database)
   4. Provides a search function to find similar movies by query meaning
 
@@ -33,9 +33,8 @@ from __future__ import annotations
 from typing import Optional, List
 
 import os
-# Import OpenAI's embedding model
-# This model converts text strings into vectors (lists of 1536 numbers)
-from langchain_openai import OpenAIEmbeddings
+# Import Gemini's embedding model
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Import FAISS (Facebook AI Similarity Search)
 # This creates a searchable index of vectors for fast similarity matching
@@ -45,8 +44,8 @@ from langchain_community.vectorstores import FAISS
 # A Document holds content and metadata together
 from langchain_core.documents import Document
 
-# Import configuration (ensures OPENAI_API_KEY is available)
-import config  # noqa: F401 — ensures OPENAI_API_KEY is set in os.environ
+# Import configuration (ensures GOOGLE_API_KEY is available)
+import config  # noqa: F401 — ensures GOOGLE_API_KEY is set in os.environ
 
 # Import the movie dataset from graph_loader
 from graph_loader import MOVIES_DATA
@@ -148,10 +147,8 @@ def create_vector_store() -> FAISS:
         3. Building a searchable index
     
     HOW IT WORKS:
-      Step 1: Create an OpenAIEmbeddings object
-        - This loads the "text-embedding-3-small" model from OpenAI
-        - Small model = faster, cheaper, but slightly less accurate
-        - Large model = slower, more expensive, more accurate
+      Step 1: Create a GoogleGenerativeAIEmbeddings object
+        - This loads Google's Gemini embedding model
       
       Step 2: Build documents
         - Calls build_documents() to create LangChain Documents
@@ -179,10 +176,11 @@ def create_vector_store() -> FAISS:
     RETURNS:
       FAISS object — a searchable vector index
     """
-    # Initialize the OpenAI embedding model
-    # "text-embedding-3-small" is fast and good for most use cases
-    # This will call OpenAI's API whenever we embed text
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    # Use the same Gemini embedding model for both documents and search queries.
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model=config.GEMINI_EMBEDDING_MODEL,
+        api_key=config.GEMINI_API_KEY,
+    )
     
     # Build all movie documents from MOVIES_DATA
     docs = build_documents()
@@ -191,7 +189,7 @@ def create_vector_store() -> FAISS:
     print(f"  Embedding {len(docs)} movie documents ...")
     
     # Create FAISS index and populate it with embeddings
-    # This calls OpenAI's API to embed each document
+    # This calls Google's API to embed each document
     # FAISS.from_documents():
     #   1. Takes each Document's page_content
     #   2. Calls the embeddings model to convert text to vector

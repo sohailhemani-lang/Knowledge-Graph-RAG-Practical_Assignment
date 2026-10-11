@@ -28,16 +28,15 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 NEO4J_URI      = os.getenv("NEO4J_URI")
 NEO4J_USER     = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 ```
-* **What it does:** Retrieves the values for our Neo4j database link, username, password, and OpenAI API key from the environment variables.
+* **What it does:** Retrieves Neo4j settings and the Gemini key. A Gemini key must be stored under `GEMINI_API_KEY`; OpenAI keys are not compatible.
 
 ```python
-if OPENAI_API_KEY:
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+if GEMINI_API_KEY:
+    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 ```
-* **What it does:** Sets `OPENAI_API_KEY` globally in Python's environment if it exists.
-* **Why:** So other libraries (like LangChain) can find and use it automatically.
+* **What it does:** Sets `GEMINI_API_KEY` for Google's LangChain integration.
 
 ```python
 if not NEO4J_URI or not NEO4J_USER or not NEO4J_PASSWORD:
@@ -49,22 +48,21 @@ if not NEO4J_URI or not NEO4J_USER or not NEO4J_PASSWORD:
 * **What it does:** Checks if any Neo4j variables are empty. If they are, it stops the program immediately with an error message telling us to check `.env`.
 
 ```python
-if not OPENAI_API_KEY:
+if not GEMINI_API_KEY:
     raise EnvironmentError(
-        "OPENAI_API_KEY is not set. "
-        "Add it to the .env file or export it as an environment variable."
+        "GEMINI_API_KEY is not set. Add it to the .env file."
     )
 ```
-* **What it does:** Checks if the OpenAI API Key is missing. If it is, it stops the program immediately with an error message.
+* **What it does:** Checks if the Gemini API key is missing. If it is, it stops with a helpful error.
 
 ```python
 if __name__ == "__main__":
     print("Configuration loaded:")
     print(f"  NEO4J_URI  : {NEO4J_URI}")
     print(f"  NEO4J_USER : {NEO4J_USER}")
-    print(f"  OPENAI_KEY : {OPENAI_API_KEY[:8]}...{OPENAI_API_KEY[-4:]}")
+    print("  GEMINI_KEY : configured")
 ```
-* **What it does:** If you run this file directly, it prints out the loaded configuration details (hiding most of the OpenAI Key for safety).
+* **What it does:** Reports that the Gemini key is configured without printing any part of the secret.
 
 ---
 
@@ -186,16 +184,16 @@ def build_documents() -> list[Document]:
 
 ```python
 def create_vector_store() -> FAISS:
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 ```
-* **What it does:** Sets up OpenAI's `text-embedding-3-small` model to transform text strings into lists of numbers (embeddings).
+* **What it does:** Sets up Gemini embeddings to transform text strings into vectors.
 
 ```python
     docs = build_documents()
     vs = FAISS.from_documents(docs, embeddings)
     return vs
 ```
-* **What it does:** Passes the documents to FAISS, which calls OpenAI's API to calculate the embeddings and constructs a searchable vector index.
+* **What it does:** Passes documents to FAISS, which uses Gemini to calculate embeddings and constructs a searchable vector index.
 
 ```python
 _vector_store: Optional[FAISS] = None
@@ -261,7 +259,7 @@ This file determines whether a question is factual/relationship-oriented (sent t
 * **Why:** If the query has words like "who", "directed by", or "cast", it instantly routes to `graph`. If it contains words like "recommend", "similar to", or "about", it routes to `vector`.
 
 ### LLM Fallback (Lines 65-95)
-* **What it does:** If keywords are ambiguous or balanced (e.g., scoring same on both sets), it calls `gpt-4o-mini` with a structured prompt.
+* **What it does:** If keywords are ambiguous or balanced (e.g., scoring the same on both sets), it calls Gemini with a structured prompt.
 * **Why:** The LLM classifies the intent based on semantic understanding and responds with exactly the single word "graph" or "vector".
 
 ```python
@@ -279,9 +277,9 @@ def route(query: str) -> str:
 This file ties the router, retrievers, and answer generator together into a complete RAG workflow.
 
 ```python
-_LLM = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+_LLM = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
 ```
-* **What it does:** Initializes the `gpt-4o-mini` LLM with a low temperature (0.2) to make the responses factual and steady.
+* **What it does:** Initializes Gemini Flash with a low temperature (0.2) for grounded responses.
 
 ```python
 _ANSWER_PROMPT = ChatPromptTemplate.from_template(
