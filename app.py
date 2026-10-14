@@ -6,11 +6,10 @@ import time
 
 import httpx
 import streamlit as st
+from openai import OpenAIError
 from neo4j.exceptions import Neo4jError
-from google.genai.errors import APIError as GeminiAPIError
-from langchain_google_genai._common import GoogleGenerativeAIError
 
-from error_messages import gemini_error_message
+from error_messages import openai_error_message
 
 st.set_page_config(
     page_title="Hybrid Movie Assistant",
@@ -68,7 +67,7 @@ with st.sidebar:
     if st.button("Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-    st.caption("Configure Neo4j and your Gemini API key in a local .env file.")
+    st.caption("Configure Neo4j and your OpenAI API key in a local .env file.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -100,7 +99,7 @@ if prompt:
             "content": (
                 "Configuration is incomplete. Check that your local `.env` file "
                 "contains `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, and "
-                "`GEMINI_API_KEY` with a valid Google Gemini API key."
+                "`OPENAI_API_KEY` with a valid OpenAI API key."
             ),
             "error": True,
         }
@@ -113,18 +112,11 @@ if prompt:
             ),
             "error": True,
         }
-    except GeminiAPIError as exc:
+    except OpenAIError as exc:
         response = {
             "role": "assistant",
-            "content": gemini_error_message(getattr(exc, "code", None), str(exc)),
-            "error": True,
-        }
-    except GoogleGenerativeAIError as exc:
-        cause = exc.__cause__
-        response = {
-            "role": "assistant",
-            "content": gemini_error_message(
-                getattr(cause, "code", None),
+            "content": openai_error_message(
+                getattr(exc, "status_code", None),
                 str(exc),
             ),
             "error": True,

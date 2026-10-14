@@ -14,7 +14,7 @@ Run:
 import csv
 import time
 from pathlib import Path
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -27,10 +27,10 @@ from vector_store import similarity_search, get_vector_store
 # Shared LLM for forced-retriever answers
 # ---------------------------------------------------------------------------
 
-_LLM = ChatGoogleGenerativeAI(
-    model=config.GEMINI_CHAT_MODEL,
+_LLM = ChatOpenAI(
+    model=config.OPENAI_CHAT_MODEL,
     temperature=0.2,
-    api_key=config.GEMINI_API_KEY,
+    api_key=config.OPENAI_API_KEY,
 )
 
 _ANSWER_PROMPT = ChatPromptTemplate.from_template(

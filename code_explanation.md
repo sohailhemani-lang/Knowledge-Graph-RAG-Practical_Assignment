@@ -28,15 +28,9 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 NEO4J_URI      = os.getenv("NEO4J_URI")
 NEO4J_USER     = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ```
-* **What it does:** Retrieves Neo4j settings and the Gemini key. A Gemini key must be stored under `GEMINI_API_KEY`; OpenAI keys are not compatible.
-
-```python
-if GEMINI_API_KEY:
-    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
-```
-* **What it does:** Sets `GEMINI_API_KEY` for Google's LangChain integration.
+* **What it does:** Retrieves Neo4j settings and the OpenAI API key.
 
 ```python
 if not NEO4J_URI or not NEO4J_USER or not NEO4J_PASSWORD:
@@ -48,21 +42,21 @@ if not NEO4J_URI or not NEO4J_USER or not NEO4J_PASSWORD:
 * **What it does:** Checks if any Neo4j variables are empty. If they are, it stops the program immediately with an error message telling us to check `.env`.
 
 ```python
-if not GEMINI_API_KEY:
+if not OPENAI_API_KEY:
     raise EnvironmentError(
-        "GEMINI_API_KEY is not set. Add it to the .env file."
+        "OPENAI_API_KEY is not set. Add it to the .env file."
     )
 ```
-* **What it does:** Checks if the Gemini API key is missing. If it is, it stops with a helpful error.
+* **What it does:** Checks if the OpenAI API key is missing. If it is, it stops with a helpful error.
 
 ```python
 if __name__ == "__main__":
     print("Configuration loaded:")
     print(f"  NEO4J_URI  : {NEO4J_URI}")
     print(f"  NEO4J_USER : {NEO4J_USER}")
-    print("  GEMINI_KEY : configured")
+    print("  OPENAI_KEY : configured")
 ```
-* **What it does:** Reports that the Gemini key is configured without printing any part of the secret.
+* **What it does:** Reports that the OpenAI key is configured without printing any part of the secret.
 
 ---
 
@@ -184,16 +178,16 @@ def build_documents() -> list[Document]:
 
 ```python
 def create_vector_store() -> FAISS:
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 ```
-* **What it does:** Sets up Gemini embeddings to transform text strings into vectors.
+* **What it does:** Sets up OpenAI embeddings to transform text strings into vectors.
 
 ```python
     docs = build_documents()
     vs = FAISS.from_documents(docs, embeddings)
     return vs
 ```
-* **What it does:** Passes documents to FAISS, which uses Gemini to calculate embeddings and constructs a searchable vector index.
+* **What it does:** Passes documents to FAISS, which uses OpenAI to calculate embeddings and constructs a searchable vector index.
 
 ```python
 _vector_store: Optional[FAISS] = None
@@ -259,7 +253,7 @@ This file determines whether a question is factual/relationship-oriented (sent t
 * **Why:** If the query has words like "who", "directed by", or "cast", it instantly routes to `graph`. If it contains words like "recommend", "similar to", or "about", it routes to `vector`.
 
 ### LLM Fallback (Lines 65-95)
-* **What it does:** If keywords are ambiguous or balanced (e.g., scoring the same on both sets), it calls Gemini with a structured prompt.
+* **What it does:** If keywords are ambiguous or balanced (e.g., scoring the same on both sets), it calls OpenAI with a structured prompt.
 * **Why:** The LLM classifies the intent based on semantic understanding and responds with exactly the single word "graph" or "vector".
 
 ```python
@@ -277,9 +271,9 @@ def route(query: str) -> str:
 This file ties the router, retrievers, and answer generator together into a complete RAG workflow.
 
 ```python
-_LLM = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+_LLM = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 ```
-* **What it does:** Initializes Gemini Flash with a low temperature (0.2) for grounded responses.
+* **What it does:** Initializes an OpenAI chat model with a low temperature (0.2) for grounded responses.
 
 ```python
 _ANSWER_PROMPT = ChatPromptTemplate.from_template(

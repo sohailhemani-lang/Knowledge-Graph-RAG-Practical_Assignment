@@ -9,7 +9,7 @@ PURPOSE:
 
 WHAT IT DOES:
   1. Uses fast keyword heuristics to classify queries (99% of the time)
-  2. Falls back to Gemini for ambiguous queries
+  2. Falls back to OpenAI for ambiguous queries
   3. Returns 'graph' or 'vector' to tell the system which retriever to use
 
 SIMPLE EXAMPLE:
@@ -32,7 +32,7 @@ from __future__ import annotations
 from typing import Optional
 
 # Import LangChain's LLM interface
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 # Import LangChain's prompt template system
 from langchain_core.prompts import ChatPromptTemplate
@@ -168,13 +168,13 @@ def _keyword_route(query: str) -> Optional[str]:
 # ─────────────────────────────────────────────────────────────────────────────────────────
 # SECTION 3: LLM-Based Fallback Router
 # ─────────────────────────────────────────────────────────────────────────────────────────
-# When keyword heuristics can't decide, use Gemini to classify
+# When keyword heuristics can't decide, use OpenAI to classify
 
 # Global variable to cache the LLM instance
 # We create it once and reuse it (singleton pattern)
 _llm = None
 
-# The prompt template that tells Gemini how to classify queries
+# The prompt template that tells the LLM how to classify queries
 _ROUTING_PROMPT = ChatPromptTemplate.from_template(
     """You are a query routing assistant for a movie knowledge system.
 
@@ -210,13 +210,13 @@ def _response_text(content: object) -> str:
         if answer:
             return answer
 
-    raise ValueError("Gemini returned no text for the query-routing decision.")
+    raise ValueError("OpenAI returned no text for the query-routing decision.")
 
 
 def _llm_route(query: str) -> str:
     """
     PURPOSE:
-      Use Gemini to classify ambiguous queries.
+      Use OpenAI to classify ambiguous queries.
       This is slower than keyword matching but much more accurate for edge cases.
     
     HOW IT WORKS:
@@ -248,13 +248,13 @@ def _llm_route(query: str) -> str:
     
     # Create the LLM on first call
     if _llm is None:
-        # Gemini Flash provides a fast fallback for ambiguous queries.
+        # A small, fast chat model provides a fallback for ambiguous queries.
         # temperature=0 means deterministic (always same answer for same query)
         # Higher temperature = more creative/random
-        _llm = ChatGoogleGenerativeAI(
-            model=config.GEMINI_CHAT_MODEL,
+        _llm = ChatOpenAI(
+            model=config.OPENAI_CHAT_MODEL,
             temperature=0,
-            api_key=config.GEMINI_API_KEY,
+            api_key=config.OPENAI_API_KEY,
         )
     
     # Create a chain: prompt template → LLM
@@ -262,17 +262,17 @@ def _llm_route(query: str) -> str:
     chain = _ROUTING_PROMPT | _llm
     
     # Invoke the chain with the user's query
-    # This calls Gemini with the formatted prompt
+    # This calls the model with the formatted prompt
     result = chain.invoke({"query": query})
     
-    # Gemini may return text as a list of content blocks rather than one string.
+    # Model responses may contain text as a list of content blocks.
     answer = _response_text(result.content)
     
     if "graph" in answer:
         return "graph"
     if "vector" in answer:
         return "vector"
-    raise ValueError(f"Gemini returned an invalid query-routing decision: {answer!r}")
+    raise ValueError(f"OpenAI returned an invalid query-routing decision: {answer!r}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────────────────

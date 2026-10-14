@@ -64,7 +64,7 @@ This project demonstrates how to build an intelligent movie assistant that under
 
 ### **1. Configuration Management** (`config.py`)
 - Loads environment variables from `.env` file
-- Validates Neo4j and Gemini API credentials
+- Validates Neo4j and OpenAI API credentials
 - Sets up global configuration for all modules
 
 ### **2. Graph Loader** (`graph_loader.py`)
@@ -75,7 +75,7 @@ This project demonstrates how to build an intelligent movie assistant that under
 
 ### **3. Vector Store** (`vector_store.py`)
 - Initializes FAISS index for vector search
-- Generates embeddings using Gemini's embedding model
+- Generates embeddings using OpenAI's embedding model
 - Performs similarity search on movie descriptions
 - Returns ranked results based on semantic relevance
 
@@ -128,7 +128,7 @@ The system intelligently routes queries:
 ### Prerequisites
 - Python 3.9+
 - Neo4j instance (local or cloud)
-- Gemini API key
+- OpenAI API key
 
 ### Installation
 
@@ -155,14 +155,12 @@ The system intelligently routes queries:
    NEO4J_URI=bolt://localhost:7687
    NEO4J_USER=neo4j
    NEO4J_PASSWORD=your_password
-   GEMINI_API_KEY=your-gemini-api-key
+   OPENAI_API_KEY=your-openai-api-key
    ```
-   Use a Google Gemini API key here. OpenAI API keys are not compatible; do not
-   put an OpenAI key in `GEMINI_API_KEY`.
-   The default chat and embedding models are `gemini-3.8-flash` and
-   `gemini-embedding-001`. If Google reports that a model is unavailable to
-   your project, set `GEMINI_CHAT_MODEL` or `GEMINI_EMBEDDING_MODEL` to a model
-   ID available to your API key, then restart Streamlit.
+   The default chat and embedding models are `gpt-4o-mini` and
+   `text-embedding-3-small`. If either model is unavailable to your project,
+   set `OPENAI_CHAT_MODEL` or `OPENAI_EMBEDDING_MODEL` to a model ID available
+   to your API key, then restart Streamlit.
 
    > **Neo4j Setup Guide**: If you don't have Neo4j installed:
    > - **Local**: Install from [neo4j.com/download](https://neo4j.com/download/)
@@ -289,7 +287,7 @@ The system comes with a curated dataset of **12 movies** featuring:
 neo4j>=5.0.0              # Graph database driver
 httpx>=0.27.0             # HTTP client used for service error handling
 langchain>=0.3.0          # LLM orchestration framework
-langchain-google-genai>=2.1.0  # Gemini chat and embeddings
+langchain-openai>=0.3.0        # OpenAI chat and embeddings
 langchain-community>=0.3.0
 langchain-core>=0.3.0
 pydantic>=2.0.0           # Data validation
@@ -310,8 +308,8 @@ NEO4J_URI=bolt://localhost:7687        # Graph database URL
 NEO4J_USER=neo4j                        # Database username
 NEO4J_PASSWORD=password                 # Database password
 
-# Gemini API
-GEMINI_API_KEY=...                      # Your Gemini API key
+# OpenAI API
+OPENAI_API_KEY=...                      # Your OpenAI API key
 ```
 
 ---
@@ -411,7 +409,7 @@ Metrics tracked:
 - **Expected answer facts** (keyword-based check, requiring human review)
 - **Actual answers and retrieval paths** (saved in `evaluation_report.csv`)
 
-The evaluation makes live Gemini API calls and requires Neo4j. Run it only
+The evaluation makes live OpenAI API calls and requires Neo4j. Run it only
 after configuring working credentials; do not use an API key that has been
 shared publicly or in chat.
 
@@ -422,7 +420,7 @@ shared publicly or in chat.
 | Issue | Solution |
 |-------|----------|
 | "Neo4j connection failed" | Check NEO4J_URI, user, password in .env |
-| "GEMINI_API_KEY not set" | Add a valid Google Gemini API key to .env |
+| "OPENAI_API_KEY not set" | Add a valid OpenAI API key to .env |
 | "Module not found" | Run `pip install -r requirements.txt` |
 | "FAISS import error" | Run `pip install faiss-cpu` (CPU) or `faiss-gpu` (GPU) |
 | "No results from graph" | Run `python main.py --load` to populate database |
@@ -450,7 +448,7 @@ This project is open source and available under the MIT License.
 - [Neo4j Documentation](https://neo4j.com/docs/)
 - [LangChain Guide](https://python.langchain.com/)
 - [FAISS Tutorial](https://github.com/facebookresearch/faiss)
-- [Gemini API Docs](https://ai.google.dev/gemini-api/docs)
+- [OpenAI API Docs](https://platform.openai.com/docs)
 - [Cypher Query Language](https://neo4j.com/docs/cypher-manual/current/)
 
 ---
@@ -464,6 +462,6 @@ Created by **niti007** as a practical exploration of hybrid RAG systems.
 ## ⭐ Acknowledgments
 
 - Neo4j team for the graph database
-- Gemini for chat generation and embeddings
+- OpenAI for chat generation and embeddings
 - Meta AI for FAISS vector search
 - LangChain community for orchestration framework

@@ -10,7 +10,7 @@ PURPOSE:
 WHAT IT DOES:
   1. Routes the user query to the appropriate retriever (graph or vector)
   2. Retrieves relevant context using the selected retriever
-  3. Generates a grounded answer using Gemini
+  3. Generates a grounded answer using OpenAI
   4. Returns the answer along with retriever source information
 
 SIMPLE EXAMPLE:
@@ -30,7 +30,7 @@ SIMPLE EXAMPLE:
 """
 
 # Import LangChain's LLM interface
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 # Import LangChain's prompt templating system
 from langchain_core.prompts import ChatPromptTemplate
@@ -59,15 +59,15 @@ from vector_store import similarity_search
 # Define the LLM model and the prompt it will use
 
 # Initialize the language model
-# Gemini Flash is used for fast, grounded answer generation.
+# A small chat model is used for fast, grounded answer generation.
 # temperature=0.2 means low creativity, high factuality (deterministic responses)
 #   - temperature=0.0 = always same response (most deterministic)
 #   - temperature=0.5 = moderate variation (balanced)
 #   - temperature=1.0 = high variation (creative, less reliable)
-_LLM = ChatGoogleGenerativeAI(
-    model=config.GEMINI_CHAT_MODEL,
+_LLM = ChatOpenAI(
+    model=config.OPENAI_CHAT_MODEL,
     temperature=0.2,
-    api_key=config.GEMINI_API_KEY,
+    api_key=config.OPENAI_API_KEY,
 )
 
 # Define the prompt template for answer generation
@@ -99,7 +99,7 @@ Answer:"""
 _chain = _ANSWER_PROMPT | _LLM | StrOutputParser()
 # This means:
 #   1. ChatPromptTemplate formats the prompt with variables
-#   2. Gemini generates text based on the prompt
+#   2. OpenAI generates text based on the prompt
 #   3. StrOutputParser extracts the text as a clean string
 
 

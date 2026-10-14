@@ -3,7 +3,7 @@
 ## Execution status
 
 The live 11-question evaluation has not yet been run. It needs a reachable Neo4j
-database and a valid Gemini API key; running it sends requests to Google and may
+database and a valid OpenAI API key; running it sends requests to OpenAI and may
 incur API charges. After rotating any key previously shared in chat, run:
 
 ```powershell
