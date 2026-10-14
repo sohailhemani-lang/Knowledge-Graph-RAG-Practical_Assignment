@@ -67,7 +67,9 @@ with st.sidebar:
     if st.button("Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-    st.caption("Configure Neo4j and your OpenAI API key in a local .env file.")
+    st.caption(
+        "Configure Neo4j and OpenAI in a local .env file or Streamlit Cloud Secrets."
+    )
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
