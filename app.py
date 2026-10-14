@@ -98,8 +98,8 @@ if prompt:
             "role": "assistant",
             "content": (
                 "Configuration is incomplete. Check that your local `.env` file "
-                "contains `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, and "
-                "`OPENAI_API_KEY` with a valid OpenAI API key."
+                "or Streamlit Cloud Secrets contain `NEO4J_URI`, `NEO4J_USER`, "
+                "`NEO4J_PASSWORD`, and `OPENAI_API_KEY` with a valid OpenAI API key."
             ),
             "error": True,
         }

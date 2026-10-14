@@ -123,6 +123,20 @@ class HybridRagRequirementTests(unittest.TestCase):
             "text-embedding-3-small",
         )
 
+    def test_config_reads_streamlit_secrets_when_environment_value_is_missing(self):
+        import config
+
+        with patch.dict(os.environ, {"TEST_CONFIG_SECRET": ""}):
+            with patch.object(
+                config.st,
+                "secrets",
+                {"TEST_CONFIG_SECRET": "from-streamlit-secrets"},
+            ):
+                self.assertEqual(
+                    config._get_setting("TEST_CONFIG_SECRET"),
+                    "from-streamlit-secrets",
+                )
+
     def test_evaluation_report_writer_records_answer_and_outcome_fields(self):
         row = {
             "question": "Who directed Inception?",

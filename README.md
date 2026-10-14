@@ -157,6 +157,8 @@ The system intelligently routes queries:
    NEO4J_PASSWORD=your_password
    OPENAI_API_KEY=your-openai-api-key
    ```
+   For Streamlit Community Cloud, add these values under **App settings → Secrets**
+   instead of relying on your local `.env` file.
    The default chat and embedding models are `gpt-4o-mini` and
    `text-embedding-3-small`. If either model is unavailable to your project,
    set `OPENAI_CHAT_MODEL` or `OPENAI_EMBEDDING_MODEL` to a model ID available
